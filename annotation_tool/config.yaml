@@ -1,0 +1,173 @@
+#------------------------------------------------------------
+# SERVER AND SHARED STORAGE
+#------------------------------------------------------------
+# Paths are relative to this file. Everyone uses ONE server and this database.
+host: 127.0.0.1
+port: 9000
+storage: ../data/fridge_annotations
+lease_seconds: 90
+max_upload_mb: 20
+max_image_pixels: 24000000
+
+#------------------------------------------------------------
+# MODEL SUGGESTIONS
+#------------------------------------------------------------
+# Segment the full shelf first. The optional grocery ViT then labels masked crops.
+model_config: ../configs/inference.yaml
+suggestions: true
+# All model weights, thresholds and preprocessing live in model_config.
+# Labels for review and training exports. Adding a label does not train ViT.
+# Keep the installed dataset's category names so its images can be reused.
+categories:
+  # Dairy, eggs and plant-based alternatives.
+  - milk
+  - butter
+  - cheese
+  - cream-cheese
+  - cottage-cheese
+  - cream
+  - sour-cream
+  - sour-milk
+  - yoghurt
+  - egg
+  - margarine
+  - oat-milk
+  - soy-milk
+  - almond-milk
+  - coconut-milk
+  - oatghurt
+  - soyghurt
+  # Fruit.
+  - apple
+  - banana
+  - orange
+  - lemon
+  - lime
+  - red-grapefruit
+  - satsumas
+  - pear
+  - peach
+  - nectarine
+  - plum
+  - kiwi
+  - mango
+  - melon
+  - watermelon
+  - pineapple
+  - papaya
+  - passion-fruit
+  - pomegranate
+  - grape
+  - strawberry
+  - blueberry
+  - raspberry
+  - cherry
+  - avocado
+  # Vegetables and herbs.
+  - tomato
+  - cucumber
+  - pepper
+  - carrots
+  - potato
+  - sweet-potato
+  - onion
+  - leek
+  - garlic
+  - ginger
+  - cabbage
+  - red-beet
+  - asparagus
+  - aubergine
+  - zucchini
+  - mushroom
+  - broccoli
+  - cauliflower
+  - lettuce
+  - spinach
+  - celery
+  - radish
+  - corn
+  - peas
+  - green-beans
+  - chilli
+  - basil
+  - parsley
+  # Meat, fish and vegetarian proteins.
+  - chicken
+  - beef
+  - pork
+  - minced-meat
+  - ham
+  - bacon
+  - sausage
+  - salami
+  - salmon
+  - tuna
+  - white-fish
+  - shrimp
+  - tofu
+  - tempeh
+  - hummus
+  # Sauces, spreads and preserved foods.
+  - ketchup
+  - salsa
+  - mustard
+  - mayonnaise
+  - pesto
+  - salad-dressing
+  - soy-sauce
+  - hot-sauce
+  - tomato-sauce
+  - jam
+  - honey
+  - peanut-butter
+  - pickles
+  - olives
+  - beans
+  - chickpeas
+  # Bread, staples, drinks and prepared foods.
+  - bread
+  - bread-roll
+  - tortilla
+  - crispbread
+  - pasta
+  - rice
+  - oats
+  - cereal
+  - juice
+  - water
+  - sparkling-water
+  - soft-drink
+  - beer
+  - wine
+  - soup
+  - salad
+  - sandwich
+  - pizza
+  - ready-meal
+  - leftovers
+
+#------------------------------------------------------------
+# ONE ENTRY PER SHELF CAMERA: ADD OR REMOVE AS NEEDED
+#------------------------------------------------------------
+# USB: kind: opencv, source: 0 (the camera index on the SERVER).
+# Network stream: kind: opencv, source: rtsp://camera-address/stream
+# Snapshot endpoint: kind: snapshot, source: http://camera-address/snapshot.jpg
+# Enable a camera only after setting its actual source. No hardware is needed
+# to start the app: Upload images works immediately.
+cameras:
+  - id: shelf-1
+    name: Top shelf
+    enabled: false
+    kind: opencv
+    source: 0
+  - id: shelf-2
+    name: Middle shelf
+    enabled: false
+    kind: opencv
+    source: 1
+  - id: shelf-3
+    name: Bottom shelf
+    enabled: false
+    kind: opencv
+    source: 2

@@ -1,0 +1,7 @@
+image,split,category,xmin,ymin,xmax,ymax,group
+images/shelf_train.jpg,train,milk,20,10,120,200,session_01
+images/shelf_train.jpg,train,apple,140,50,220,150,session_01
+images/shelf_val.jpg,val,milk,30,20,130,210,session_02
+images/shelf_val.jpg,val,apple,150,60,230,160,session_02
+images/shelf_test.jpg,test,milk,25,15,125,205,session_03
+images/shelf_test.jpg,test,apple,145,55,225,155,session_03

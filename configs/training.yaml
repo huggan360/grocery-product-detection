@@ -1,0 +1,25 @@
+# Paths are relative to this file. Choose a NEW output folder for each run.
+seed: 42
+device: auto
+segmenter:
+  weights: ../models/yolo/yolo26l-seg.pt
+  data: ../data/fridge-export/segmentation/dataset.yaml
+  output: ../models/yolo/fridge-v1
+  checkpoint: ../models/yolo/fridge-v1/train/weights/best.pt
+  epochs: 50
+  batch_size: 8
+classifier:
+  data: ../data/grocery-store/classification
+  output: ../models/vit/grocery-v1
+  checkpoint: ../models/vit/grocery-v1/best.pt
+  initialize_from: null  # Or ../models/vit/previous-run/best.pt
+  epochs: 20
+  batch_size: 16
+  workers: 2
+  learning_rate: 0.00003
+  head_learning_rate: 0.0003
+  weight_decay: 0.01
+  freeze_backbone_epochs: 2
+  patience: 5
+  balanced_sampling: false
+  amp: true

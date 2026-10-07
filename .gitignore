@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+data/
+runs/
+*.pt
+*.pth
+.DS_Store
+models/*/*/
+models/**/*.json
+models/**/*.csv
+models/**/*.png
+models/**/*.jpg
+models/**/*.yaml

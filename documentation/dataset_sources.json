@@ -1,0 +1,32 @@
+{
+  "download_date": "2026-09-23",
+  "grocery_store": {
+    "url": "https://github.com/marcusklasson/GroceryStoreDataset",
+    "revision": "fc80ba90f803d79d0383df52c5a4ac5de99ff6fc",
+    "natural_images": 5421,
+    "coarse_categories": 43,
+    "citation": "klasson2019hierarchical"
+  },
+  "open_food_facts": {
+    "source": "https://world.openfoodfacts.org",
+    "filter": "countries_tags=en:sweden",
+    "meaning": "Products listed as sold in Sweden; not necessarily produced in Sweden.",
+    "images": 200,
+    "products_returned": 200,
+    "failures": [],
+    "database_license": "ODbL 1.0",
+    "contents_license": "Database Contents License 1.0",
+    "image_license": "CC BY-SA 3.0",
+    "attribution": "Open Food Facts contributors",
+    "license_source": "https://openfoodfacts.github.io/openfoodfacts-server/api/",
+    "usage": "Review category suggestions before using for training. No bounding boxes are supplied."
+  },
+  "sha256": {
+    "data/raw/grocery-store-dataset/dataset/train.txt": "b6d6a4d25fc2a7604f4bbd4e8010516f3bb643f727fc60ef5fca042edd01294f",
+    "data/raw/grocery-store-dataset/dataset/val.txt": "a2a2bdf8ce34196c1a1dd554bd67e780793aab9363dd40d6cf50fe2d168a78b6",
+    "data/raw/grocery-store-dataset/dataset/test.txt": "9a464934780665c0024db405571c0dd2d149488a245f476557de7f1c31cf8a93",
+    "data/raw/grocery-store-dataset/dataset/classes.csv": "6e1115adf36741498034165778a3300cd11f24c419e32a60d0a5057dd92998c1",
+    "data/raw/open-food-facts-sweden/page_1.json": "fe64e2b7521fe47d4f63be926ef62fca68d538c75fc3074f603e762b9f78a9dc",
+    "data/raw/open-food-facts-sweden/page_2.json": "05a707dcb9f46e2e749d403d14464fd300e7fa856d929df845a9dc7c5e8f66fc"
+  }
+}

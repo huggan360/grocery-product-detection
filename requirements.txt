@@ -1,0 +1,7 @@
+# Install matching torch / torchvision wheels for your GPU first if needed.
+torch>=2.6,<3
+torchvision>=0.21,<1
+ultralytics>=8.4,<9
+Pillow>=11,<13
+PyYAML>=6,<7
+requests>=2.32,<3

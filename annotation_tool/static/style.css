@@ -1,0 +1,121 @@
+/* ---------------------------------------------------------
+   BASIC CONTROLS
+   --------------------------------------------------------- */
+:root { font: 14px Arial, sans-serif; color: #222; background: #fff; }
+* { box-sizing: border-box; }
+body { margin: 0; height: 100dvh; display: flex; flex-direction: column; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { padding: 6px 10px; border: 1px solid #bbb; border-radius: 3px; background: #f5f5f5; cursor: pointer; }
+button:hover { background: #e9e9e9; }
+button:disabled { opacity: .45; cursor: default; }
+button.primary { background: #e8edf2; border-color: #9aa9b7; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid #386b9b; outline-offset: 1px; }
+input, select, textarea { padding: 6px; border: 1px solid #bbb; border-radius: 2px; background: white; max-width: 100%; }
+textarea { width: 100%; resize: vertical; }
+h2, h3, p { margin: 0; }
+h2 { font-size: 14px; }
+h3 { font-size: 12px; }
+small, .muted { font-size: 12px; color: #666; }
+[hidden] { display: none !important; }
+kbd { font: 11px monospace; margin-left: 5px; color: #777; }
+/* ---------------------------------------------------------
+   HEADER AND IMAGE LIST
+   --------------------------------------------------------- */
+.topbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border-bottom: 1px solid #ccc; }
+.presence, .header-actions, .nav-right, .tabs { display: flex; align-items: center; gap: 8px; }
+.presence { color: #555; font-size: 12px; }
+.status-dot { width: 6px; height: 6px; background: #398247; border-radius: 50%; }
+.status-dot.offline { background: #a44; }
+.user-badge { font-size: 12px; margin-left: 6px; }
+.model-status { padding: 4px 12px; font-size: 11px; color: #666; }
+.workspace-nav { display: flex; align-items: center; justify-content: space-between; padding: 5px 12px; border-bottom: 1px solid #ccc; gap: 12px; }
+.tab { background: white; }
+.tab.active { background: #e7e7e7; border-color: #777; }
+.tab span { margin-left: 5px; font-size: 12px; color: #666; }
+.nav-right { font-size: 12px; }
+.workspace { flex: 1; min-height: 0; display: grid; grid-template-columns: 200px minmax(300px, 1fr) 245px; }
+.queue-panel { border-right: 1px solid #ccc; padding: 10px; overflow-y: auto; }
+.panel-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.image-list { display: flex; flex-direction: column; gap: 8px; }
+.image-card { padding: 0; text-align: left; position: relative; background: white; }
+.image-card.active { outline: 2px solid #386b9b; }
+.image-card img { width: 100%; height: 100px; object-fit: cover; display: block; background: #eee; }
+.card-info { padding: 6px; }
+.card-top { display: flex; justify-content: space-between; gap: 5px; font-size: 11px; }
+.card-top strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-bottom { margin-top: 4px; color: #666; font-size: 10px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-badge { position: absolute; top: 4px; right: 4px; padding: 3px 5px; font-size: 10px; background: #fffffff0; }
+.queue-empty { padding: 12px 0; color: #666; font-size: 12px; }
+/* ---------------------------------------------------------
+   IMAGE EDITOR AND LABEL CONTROLS
+   --------------------------------------------------------- */
+.editor-panel { min-width: 0; display: flex; flex-direction: column; overflow: hidden; }
+.editor-heading { padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.editor-heading h2 { max-width: 420px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.editor-heading p { margin-top: 4px; font-size: 11px; color: #666; }
+.save-state { font-size: 11px; color: #555; }
+.toolbar { padding: 6px 10px; border-top: 1px solid #ddd; border-bottom: 1px solid #ccc; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.tool-group { display: flex; align-items: center; gap: 4px; }
+.toolbar button { font-size: 12px; padding: 5px 8px; }
+.tool.active { background: #ddd; border-color: #777; }
+.divider { height: 16px; border-left: 1px solid #ccc; margin: 0 4px; }
+#zoom-label { min-width: 32px; text-align: center; font-size: 11px; }
+.canvas-viewport { flex: 1; min-height: 200px; overflow: auto; background: #eee; padding: 24px; align-content: center; text-align: center; }
+canvas { display: block; margin: auto; touch-action: none; max-width: none; background: white; }
+.empty-editor { padding: 20px; }
+.editor-footer { padding: 6px 10px; border-top: 1px solid #ccc; display: flex; justify-content: flex-end; }
+.editor-footer button { font-size: 12px; }
+.inspector { border-left: 1px solid #ccc; padding: 10px; overflow-y: auto; display: flex; flex-direction: column; }
+.count-pill { font-size: 12px; color: #666; }
+.field-label { display: block; font-size: 12px; margin: 10px 0 5px; }
+.inspector select { width: 100%; }
+.text-button { background: none; border: 0; text-align: left; padding: 6px 0; font-size: 12px; text-decoration: underline; }
+.box-list { margin: 10px 0; max-height: 220px; overflow-y: auto; }
+.box-row { display: flex; align-items: center; gap: 7px; width: 100%; padding: 7px; margin-bottom: 4px; text-align: left; font-size: 12px; background: white; }
+.box-row.active { border-color: #386b9b; background: #eef2f6; }
+.box-number, .box-score { font-size: 10px; color: #666; }
+.box-category { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.unlabelled { color: #915b00; }
+.danger-text { font-size: 11px; color: #a22; background: none; border: 0; padding: 3px; }
+.coordinate-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 7px; margin-bottom: 10px; }
+.coordinate-grid label { font-size: 11px; color: #555; }
+.coordinate-grid input { display: block; width: 100%; margin-top: 3px; }
+.empty-check { display: flex; gap: 6px; align-items: center; font-size: 12px; margin: 12px 0; }
+.review-actions { display: flex; flex-direction: column; gap: 6px; margin-top: auto; padding-top: 10px; }
+.mask-tools { padding: 5px 10px; display: flex; flex-wrap: wrap; gap: 5px; border-bottom: 1px solid #ccc; }
+.mask-tools button { font-size: 12px; }
+#mask-preview { width: 180px; height: 140px; margin: 8px auto; background: #7f7f7f; }
+#mask-controls button { margin-right: 7px; }
+.warning { padding: 8px 12px; background: #fff4db; color: #754e00; font-size: 12px; line-height: 1.5; }
+/* ---------------------------------------------------------
+   FORMS AND SMALL SCREENS
+   --------------------------------------------------------- */
+dialog { width: 380px; max-width: calc(100% - 24px); border: 1px solid #aaa; border-radius: 3px; padding: 20px; color: #222; }
+dialog::backdrop { background: #0005; }
+dialog h2 { font-size: 16px; margin-bottom: 12px; }
+dialog p { font-size: 12px; color: #555; }
+dialog p:empty { display: none; }
+dialog label { display: block; margin: 12px 0 5px; font-size: 12px; }
+dialog input, dialog select { width: 100%; }
+#join-form > button { margin-top: 14px; }
+.dialog-actions { margin-top: 16px; display: flex; justify-content: flex-end; gap: 6px; }
+#ingest-result { margin-top: 10px; white-space: pre-line; }
+.toast { position: fixed; bottom: 16px; left: 50%; transform: translateX(-50%); padding: 10px 14px; background: #333; color: white; font-size: 12px; max-width: 650px; z-index: 20; }
+.toast.error { background: #803c32; }
+@media (max-width: 950px) {
+  .workspace { grid-template-columns: 155px minmax(260px, 1fr) 210px; }
+  .presence { max-width: 200px; overflow: hidden; white-space: nowrap; }
+  .image-card img { height: 85px; }
+  .save-state { max-width: 110px; }
+  .editor-heading h2 { max-width: 230px; }
+}
+@media (max-width: 720px) {
+  body { height: auto; min-height: 100dvh; }
+  .topbar, .workspace-nav { flex-wrap: wrap; }
+  .workspace { grid-template-columns: 130px minmax(220px, 1fr); }
+  .inspector { grid-column: 1 / -1; border-top: 1px solid #ccc; }
+  .editor-panel { min-height: 480px; }
+  .queue-panel { max-height: 560px; }
+  .image-card img { height: 70px; }
+  .editor-heading { flex-wrap: wrap; }
+}

@@ -1,0 +1,20 @@
+#------------------------------------------------------------
+# ONE MODEL CONFIGURATION FOR PREDICT AND REVIEW
+#------------------------------------------------------------
+# Paths are relative to this file. Set both saved checkpoints here after training.
+device: auto
+models_directory: ../models
+retention_runs: 3  # Standalone production; orchestrator config controls managed runs.
+classifier:
+  checkpoint: null  # Later use vit/my-run/best.pt (ViT-L/32).
+  baseline: imagenet  # Try the original 1,000 ImageNet classes until a grocery checkpoint exists.
+  imagenet_confidence: 0.0  # Show the best guess for this demo, even when uncertain.
+prediction:
+  segmentation_weights: yolo/yolo26l-seg.pt
+  image_size: 640
+  yolo_preprocessing: true
+  detection_confidence: 0.15
+  classification_confidence: 0.65
+  crop_padding: 0.05
+  batch_size: 16
+  max_detections: 100
