@@ -2,8 +2,8 @@
 seed: 42
 device: auto
 segmenter:
-  weights: ../models/yolo/yolo26l-seg.pt
-  data: ../data/fridge-export/segmentation/dataset.yaml
+  weights: ../models/yolo/yolo26m.pt  # Box detection; the Hailo-8 runs YOLO26m.
+  data: ../data/prepared/detection/dataset.yaml  # From: python -m utils.prepare_data (box CSVs).
   output: ../models/yolo/fridge-v1
   checkpoint: ../models/yolo/fridge-v1/train/weights/best.pt
   epochs: 50

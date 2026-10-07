@@ -18,7 +18,6 @@ def load_config(path):
         "detector": ["data", "output"],
         "segmenter": ["data", "output", "weights", "checkpoint"],
         "classifier": ["data", "output", "checkpoint", "initialize_from"],
-        "prediction": ["output", "detector_weights", "segmentation_weights"],
     }.items():
         for key in keys:
             value = config.get(section, {}).get(key)

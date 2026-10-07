@@ -88,6 +88,29 @@ canvas { display: block; margin: auto; touch-action: none; max-width: none; back
 #mask-controls button { margin-right: 7px; }
 .warning { padding: 8px 12px; background: #fff4db; color: #754e00; font-size: 12px; line-height: 1.5; }
 /* ---------------------------------------------------------
+   VIDEO REVIEW
+   --------------------------------------------------------- */
+.nav-link { font-size: 12px; color: #386b9b; margin-right: 6px; }
+.record-controls { display: flex; gap: 4px; align-items: center; font-size: 12px; }
+.record-controls input { width: 52px; padding: 4px; }
+.video-stage { flex: 1; min-height: 200px; overflow: auto; background: #eee; padding: 16px; display: flex; align-items: center; justify-content: center; }
+.video-frame { position: relative; display: inline-block; max-width: 100%; }
+.video-frame video { display: block; max-width: 100%; max-height: calc(100dvh - 230px); background: #000; }
+.video-frame canvas { position: absolute; left: 0; top: 0; background: transparent; margin: 0; pointer-events: none; }
+.video-frame canvas.drawing { pointer-events: auto; cursor: crosshair; }
+.movement-list { margin-bottom: 12px; font-size: 12px; }
+.movement-row { display: flex; gap: 6px; padding: 5px 0; border-bottom: 1px solid #eee; cursor: pointer; }
+.movement-row b { min-width: 30px; }
+.movement-row.in b { color: #2b7a3b; }
+.movement-row.out b { color: #a3521b; }
+.track-list { display: flex; flex-direction: column; gap: 6px; max-height: 45vh; overflow-y: auto; }
+.track-row { border: 1px solid #ccc; border-radius: 3px; padding: 6px; font-size: 11px; display: grid; grid-template-columns: 56px 1fr; gap: 6px; }
+.track-row.active { border-color: #386b9b; background: #eef2f6; }
+.track-row img { width: 56px; height: 56px; object-fit: contain; background: #ddd; cursor: pointer; }
+.track-row select { width: 100%; font-size: 11px; padding: 3px; margin-top: 3px; }
+.track-row .ignore { display: flex; gap: 4px; align-items: center; margin-top: 3px; }
+.card-progress { height: 3px; background: #386b9b; }
+/* ---------------------------------------------------------
    FORMS AND SMALL SCREENS
    --------------------------------------------------------- */
 dialog { width: 380px; max-width: calc(100% - 24px); border: 1px solid #aaa; border-radius: 3px; padding: 20px; color: #222; }

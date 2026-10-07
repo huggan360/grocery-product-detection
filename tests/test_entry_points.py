@@ -1,48 +1,21 @@
 #------------------------------------------------------------
 # CHECK SCRIPT CONNECTIONS WITHOUT RUNNING TRAINING
 #------------------------------------------------------------
-import json
 import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import torch
 from PIL import Image
 
 from utils.common import load_config
 from utils.import_grocery_store import import_grocery_store
-from production.run import run_request
-from test_data_and_pipeline import FakeClassifier, FakeDetector
 from training.yolo import train_segmenter
 
 
 class EntryPointTests(unittest.TestCase):
     """Check output files and training arguments using small stand-in models."""
-
-    def test_prediction_script_writes_outputs(self):
-        with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
-            source = root / "shelf.png"
-            Image.new("RGB", (40, 30), "red").save(source)
-            weights = root / "fake_detector.pt"
-            weights.touch()
-            config = Path(__file__).resolve().parents[1] / "configs/inference.yaml"
-            request = root / "request.json"
-            request.write_text(json.dumps({"schema_version": 1, "capture_id": "capture-1",
-                "event_id": "event-1", "captured_at": "2026-10-05T12:00:00+00:00",
-                "sensor": "rgb", "image_path": str(source)}))
-            fake = MagicMock()
-            fake.predict.return_value = [{"category": "milk", "classification_confidence": 0.9,
-                "box_xyxy": [1, 1, 20, 20], "polygon": [[1, 1], [20, 1], [20, 20], [1, 20]]}]
-            folder = root / "results" / "run-1"
-            output = run_request(request, "capture-1", folder / "result.json", config,
-                                 "production", pipeline=fake)
-            result = json.loads(output.read_text())
-            self.assertEqual(result["counts"], {"milk": 1})
-            self.assertTrue((folder / "annotated.jpg").is_file())
-            self.assertTrue((folder / "masks/0000.png").is_file())
 
     def test_detector_training_options_without_calling_real_training(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -52,7 +25,7 @@ class EntryPointTests(unittest.TestCase):
             config = load_config(Path(__file__).resolve().parents[1] / "configs/training.yaml")
             config["device"] = "cpu"
             fake = MagicMock()
-            fake.task = "segment"
+            fake.task = "detect"
             fake.trainer = SimpleNamespace(best=root / "best.pt")
             with patch("ultralytics.YOLO", return_value=fake):
                 result = train_segmenter(str(data), "fake.pt", root / "output", device="cpu")

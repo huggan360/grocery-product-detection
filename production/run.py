@@ -2,115 +2,77 @@
 # FILE HANDOFF: THE ORCHESTRATOR OWNS SQLITE
 #------------------------------------------------------------
 import json
+import secrets
 import shutil
-from collections import Counter
-from datetime import datetime, timezone
+import time
 from pathlib import Path
 
-from PIL import Image, ImageOps
+from production.video import VideoPipeline, load_config, purge_video_runs, write_json
 
-from production.masks import masked_crop
-from production.pipeline import RGBPipeline, draw_predictions, load_pipeline_config
-
-
-def utc_now():
-    """Record times with an explicit UTC timezone."""
-    return datetime.now(timezone.utc).isoformat()
+MODES = ("production", "acquisition", "test")
 
 
-def write_json(path, document):
-    """Publish complete JSON at once, never a half-written result."""
-    path = Path(path)
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text(json.dumps(document, indent=2, allow_nan=False) + "\n")
-    temporary.replace(path)
-
-
-def run_request(request_path, record_id, output_path, config_path, mode,
-                models_dir=None, managed_retention=False, pipeline=None):
-    """Process one RGB capture while preserving IDs and sensor metadata."""
-    if mode not in ("production", "acquisition"):
+def run_video_request(request_path, record_id, output_path, config_path, mode,
+                      models_dir=None, managed_retention=False, pipeline=None):
+    """Track objects in one clip and report which ones moved in or out."""
+    if mode not in MODES:
         raise ValueError("Unknown run mode.")
     request = json.loads(Path(request_path).read_text())
-    if request.get("schema_version") != 1 or str(request.get("capture_id")) != str(record_id):
+    if request.get("schema_version") != 2 or str(request.get("capture_id")) != str(record_id):
         raise ValueError("Request schema or capture ID does not match.")
-    for key in ("event_id", "captured_at", "sensor", "image_path"):
+    for key in ("event_id", "captured_at", "camera", "video_path"):
         if not isinstance(request.get(key), str) or not request[key]:
             raise ValueError(f"Request needs {key}.")
-    source = Path(request["image_path"])
+    source = Path(request["video_path"])
     if not source.is_absolute() or not source.is_file():
-        raise ValueError("image_path must be an existing absolute path.")
-    config = load_pipeline_config(config_path, models_dir=models_dir)
-    keep = config.get("retention_runs", 3)
-    if isinstance(keep, bool) or not isinstance(keep, int) or keep < 1:
-        raise ValueError("retention_runs must be a positive integer.")
+        raise ValueError("video_path must be an existing absolute path.")
+    config = load_config(config_path, models_dir=models_dir)
+    if request["camera"] not in config["cameras"]:
+        raise ValueError(f"camera must be one of {sorted(config['cameras'])}.")
     output = Path(output_path).resolve()
-    if output.exists() or (output.parent / "masks").exists():
+    if output.exists() or (output.parent / "video.mp4").exists():
         raise ValueError("Use a new run directory; existing results are not overwritten.")
     output.parent.mkdir(parents=True, exist_ok=True)
-    started = utc_now()
-    pipeline = pipeline or RGBPipeline(config)
-    with Image.open(source) as opened:
-        image = ImageOps.exif_transpose(opened).convert("RGB")
-    items = pipeline.predict(image)
-    masks = output.parent / "masks"
-    masks.mkdir()
-    for index, item in enumerate(items):
-        polygon_path = masks / f"{index:04d}.json"
-        crop_path = masks / f"{index:04d}.png"
-        write_json(polygon_path, {"polygon": item["polygon"], "box_xyxy": item["box_xyxy"]})
-        masked_crop(image, item["polygon"], config["prediction"]["crop_padding"]).save(crop_path)
-        item.update(mask_path=str(polygon_path), crop_path=str(crop_path))
-    draw_predictions(image, items).save(output.parent / "annotated.jpg")
-    result = {"schema_version": 1, "capture_id": str(record_id),
-              "event_id": request["event_id"], "mode": mode,
-              "captured_at": request["captured_at"], "sensor": request["sensor"],
-              "started_at": started, "completed_at": utc_now(),
-              "image_path": str(source), "image_size": list(image.size),
-              "coordinate_space": "pixels in EXIF-corrected RGB image",
-              "sensor_metadata": request.get("sensor_metadata", {}),
-              "attachments": request.get("attachments", []),
-              "models": {"yolo": config["prediction"]["segmentation_weights"],
-                         "vit": config["classifier"].get("checkpoint"),
-                         "vit_baseline": config["classifier"].get("baseline")},
-              "objects": items, "counts": dict(Counter(item["category"] for item in items)),
-              "annotated_path": str(output.parent / "annotated.jpg")}
+    pipeline = pipeline or VideoPipeline(config)
+    result = pipeline.run(source, output.parent, request["camera"], config["cameras"][request["camera"]],
+                          request["event_id"], float(request.get("offset_seconds", 0.0)))
+    result.update(capture_id=str(record_id), mode=mode, captured_at=request["captured_at"],
+                  sensor_metadata=request.get("sensor_metadata", {}),
+                  attachments=request.get("attachments", []))
     write_json(output, result)
-    write_json(output.parent / ".ml-run.json", {"schema_version": 1, "mode": mode,
+    write_json(output.parent / ".ml-run.json", {"schema_version": 2, "kind": "video", "mode": mode,
                "completed_at": result["completed_at"], "result": output.name})
-    if mode == "production" and not managed_retention:
-        purge_masks(output.parent.parent, keep)
+    if mode == "test":
+        publish_for_review(output.parent, source, result, config)
+    if mode in ("production", "test") and not managed_retention:
+        purge_video_runs(output.parent.parent, config["retention_runs"])
     return output
 
 
 #------------------------------------------------------------
-# STANDALONE CLEANUP: NEVER DELETE INPUT IMAGES OR ACQUISITION DATA
+# --test: SHOW LIVE CLIPS AND PREDICTIONS IN THE REVIEW TOOL
 #------------------------------------------------------------
-def purge_masks(root, keep=3):
-    """Keep masks for the latest completed production runs in this output root."""
-    if not isinstance(keep, int) or keep < 1:
-        raise ValueError("keep must be positive.")
-    runs = []
-    for marker in Path(root).glob("*/.ml-run.json"):
-        if marker.parent.is_symlink() or marker.is_symlink():
-            continue
-        document = json.loads(marker.read_text())
-        if document.get("schema_version") == 1 and document.get("mode") == "production":
-            runs.append((document["completed_at"], marker.parent))
-    for _, directory in sorted(runs, reverse=True)[keep:]:
-        masks = directory / "masks"
-        if masks.is_dir() and not masks.is_symlink():
-            shutil.rmtree(masks)
-        marker = json.loads((directory / ".ml-run.json").read_text())
-        name = marker["result"]
-        if Path(name).name != name:
-            continue
-        path = directory / name
-        if path.is_symlink():
-            continue
-        result = json.loads(path.read_text())
-        for item in result.get("objects", []):
-            for key in ("mask_path", "crop_path", "polygon"):
-                item.pop(key, None)
-        result["masks_purged"] = True
-        write_json(path, result)
+def publish_for_review(run_directory, source, result, config):
+    """Copy the clip and its result into the review tool's library as a finished clip."""
+    library = Path(config["acquisition_directory"]) / "videos"
+    video_id = secrets.token_hex(12)
+    staging = library / f".publish-{video_id}"
+    staging.mkdir(parents=True)
+    try:
+        shutil.copyfile(source, staging / f"original{source.suffix.lower()}")
+        for path in run_directory.iterdir():
+            if path.name in ("video.mp4", "poster.jpg", "result.json") or \
+                    (path.name.startswith("track-") and path.suffix == ".jpg"):
+                shutil.copyfile(path, staging / path.name)
+        name = f"{result['event_id']}-{result['camera']}-{result.get('offset_seconds', 0):.1f}s.mp4"
+        write_json(staging / "meta.json", {
+            "id": video_id, "filename": name, "camera": result["camera"], "event_id": result["event_id"],
+            "capture_id": result["capture_id"], "created": time.time(), "editor": "live system (--test)",
+            "status": "done", "progress": 100, "message": f"Live run ({result.get('backend', 'unknown')} YOLO)",
+            "original": f"original{source.suffix.lower()}"})
+        # The review tool only lists complete folders, so publish with one rename.
+        staging.rename(library / video_id)
+    except BaseException:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    return library / video_id

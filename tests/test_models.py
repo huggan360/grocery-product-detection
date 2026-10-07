@@ -18,8 +18,7 @@ class TinyClassifier(torch.nn.Module):
     def __init__(self, classes):
         super().__init__()
         self.body = torch.nn.Linear(3, 4)
-        self.heads = torch.nn.Module()
-        self.heads.head = torch.nn.Linear(4, classes)
+        self.head = torch.nn.Linear(4, classes)
 
 
 class ModelTests(unittest.TestCase):
@@ -34,33 +33,40 @@ class ModelTests(unittest.TestCase):
         logits = model(images)
         self.assertEqual(tuple(logits.shape), (1, 3))
         torch.nn.functional.cross_entropy(logits, torch.tensor([1])).backward()
-        self.assertIsNotNone(model.heads.head.weight.grad)
-        self.assertIsNotNone(model.conv_proj.weight.grad)
-        self.assertTrue(torch.isfinite(model.heads.head.weight.grad).all())
+        self.assertIsNotNone(model.head.weight.grad)
+        self.assertIsNotNone(model.patch_embed.proj.weight.grad)
+        self.assertTrue(torch.isfinite(model.head.weight.grad).all())
 
     def test_real_yolo26_forward_without_pretrained_download(self):
         from ultralytics import YOLO
-        model = YOLO("yolo26l.yaml")
+        model = YOLO("yolo26m.yaml")
         results = model.predict(Image.new("RGB", (64, 64)), imgsz=64, device="cpu", verbose=False)
         self.assertEqual(len(results), 1)
         self.assertEqual(tuple(results[0].boxes.xyxy.shape[1:]), (4,))
+
+    def test_old_vit_l32_checkpoints_are_rejected(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "old.pt"
+            torch.save({"format_version": 1, "architecture": "vit_l_32", "classes": ["a", "b"], "model": {}}, path)
+            with self.assertRaises(ValueError):
+                load_classifier(path, torch.device("cpu"))
 
     def test_checkpoint_load_and_category_transfer(self):
         with tempfile.TemporaryDirectory() as temporary:
             path = Path(temporary) / "model.pt"
             old_model = TinyClassifier(2)
             with torch.no_grad():
-                old_model.heads.head.weight[0].fill_(2)
-                old_model.heads.head.weight[1].fill_(5)
-            torch.save({"format_version": 1, "architecture": "vit_l_32", "classes": ["apple", "milk"],
+                old_model.head.weight[0].fill_(2)
+                old_model.head.weight[1].fill_(5)
+            torch.save({"format_version": 2, "architecture": "vit_small_patch16_224", "classes": ["apple", "milk"],
                         "model": old_model.state_dict()}, path)
             with patch("production.vit.build_classifier", side_effect=lambda n, pretrained: TinyClassifier(n)):
                 loaded, classes = load_classifier(path, torch.device("cpu"))
                 self.assertEqual(classes, ["apple", "milk"])
                 self.assertFalse(loaded.training)
                 transferred = initialize_classifier(["milk", "butter", "apple"], path)
-            self.assertTrue(torch.equal(transferred.heads.head.weight[0], old_model.heads.head.weight[1]))
-            self.assertTrue(torch.equal(transferred.heads.head.weight[2], old_model.heads.head.weight[0]))
+            self.assertTrue(torch.equal(transferred.head.weight[0], old_model.head.weight[1]))
+            self.assertTrue(torch.equal(transferred.head.weight[2], old_model.head.weight[0]))
             self.assertTrue(torch.equal(transferred.body.weight, old_model.body.weight))
 
 

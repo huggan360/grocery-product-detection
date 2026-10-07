@@ -1,21 +1,23 @@
 #------------------------------------------------------------
-# PRETRAINED VISION TRANSFORMER AND IMAGE PREPARATION
+# VIT-SMALL/16: SMALL ENOUGH FOR THE HAILO-8 AI HAT (26 TOPS)
 #------------------------------------------------------------
-import torch
+# ViT-L/32 (306M parameters) cannot be compiled for Hailo-8. ViT-Small/16
+# (22M) is in the Hailo Model Zoo and runs at roughly 70 FPS on the accelerator,
+# and is still usable on the Raspberry Pi CPU while a grocery HEF is compiled.
 import re
 from pathlib import Path
-from torch import nn
+
+import torch
 from torchvision import transforms
-from torchvision.models import ViT_L_32_Weights, vit_l_32
 from torchvision.transforms import InterpolationMode
 
 from production.preprocessing import PrepareViTImage
 
-ARCHITECTURE = "vit_l_32"
-WEIGHTS = ViT_L_32_Weights.IMAGENET1K_V1
+ARCHITECTURE = "vit_small_patch16_224"
+PRETRAINED = "vit_small_patch16_224.augreg_in21k_ft_in1k"
 IMAGE_SIZE = 224
-MEAN = (0.485, 0.456, 0.406)
-STD = (0.229, 0.224, 0.225)
+MEAN = (0.5, 0.5, 0.5)
+STD = (0.5, 0.5, 0.5)
 
 
 class SquarePad:
@@ -30,8 +32,14 @@ class SquarePad:
         )
 
 
+def square_crop(image):
+    """The exact 224x224 RGB image given to both the CPU model and the Hailo HEF."""
+    image = SquarePad()(PrepareViTImage()(image))
+    return image.resize((IMAGE_SIZE, IMAGE_SIZE))
+
+
 def image_transform(training=False):
-    """Resize crops and use ImageNet normalization for the pretrained ViT."""
+    """Resize crops and normalize them the way ViT-Small was pretrained."""
     # Use the same gentle preprocessing in training and prediction.
     steps = [PrepareViTImage(), SquarePad()]
     if training:
@@ -53,13 +61,19 @@ def image_transform(training=False):
     return transforms.Compose(steps)
 
 
-def build_classifier(number_of_classes, pretrained=True):
+def build_classifier(number_of_classes, pretrained=True, cache_dir=None):
     """Keep the pretrained ViT body and replace its final category layer."""
+    import timm
     if number_of_classes < 2:
         raise ValueError("Provide at least two product categories.")
-    model = vit_l_32(weights=WEIGHTS if pretrained else None)
-    model.heads.head = nn.Linear(model.heads.head.in_features, number_of_classes)
-    return model
+    cache_dir = cache_dir or Path(__file__).resolve().parents[1] / "models/vit/pretrained"
+    return timm.create_model(PRETRAINED, pretrained=pretrained, num_classes=number_of_classes,
+                             cache_dir=cache_dir)
+
+
+def head_parameters(model):
+    """The new category layer; everything else is the pretrained body."""
+    return list(model.get_classifier().parameters())
 
 
 #------------------------------------------------------------
@@ -68,8 +82,9 @@ def build_classifier(number_of_classes, pretrained=True):
 def read_checkpoint(path):
     """Read our classifier format without unpickling arbitrary Python objects."""
     checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-    if checkpoint.get("architecture") != ARCHITECTURE or checkpoint.get("format_version") != 1:
-        raise ValueError("Expected a grocery RGB ViT-L/32 checkpoint, format version 1. Older ViT-B/16 checkpoints cannot be loaded into this model.")
+    if checkpoint.get("architecture") != ARCHITECTURE or checkpoint.get("format_version") != 2:
+        raise ValueError("Expected a grocery ViT-Small/16 checkpoint, format version 2. "
+                         "Older ViT-L/32 checkpoints cannot run on the Hailo-8; retrain with train.py vit.")
     classes = checkpoint["classes"]
     if len(classes) < 2 or len(set(classes)) != len(classes):
         raise ValueError("Checkpoint has invalid category names.")
@@ -87,18 +102,22 @@ def load_classifier(path, device):
 #------------------------------------------------------------
 # IMAGENET DEMO: KEEP THE ORIGINAL TRAINED CLASSIFICATION HEAD
 #------------------------------------------------------------
+def imagenet_classes():
+    """Prefix labels so guesses cannot be mistaken for our grocery categories."""
+    from timm.data import ImageNetInfo
+    info = ImageNetInfo()
+    return ["imagenet-" + re.sub(r"[^a-z0-9]+", "-", info.index_to_description(i).split(",")[0].lower()).strip("-")[:54]
+            for i in range(1000)]
+
+
 def load_imagenet_classifier(directory, device):
     """Load all 1,000 pretrained classes without inventing grocery training."""
+    import timm
     directory = Path(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    state = torch.hub.load_state_dict_from_url(
-        WEIGHTS.url, model_dir=str(directory), map_location="cpu", check_hash=True)
-    model = vit_l_32(weights=None)
-    model.load_state_dict(state)
-    # Prefix labels so guesses cannot be mistaken for our grocery categories.
-    classes = ["imagenet-" + re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")[:54]
-               for name in WEIGHTS.meta["categories"]]
-    return model.to(device).eval(), classes
+    # Keep the Hugging Face download with the other model files.
+    model = timm.create_model(PRETRAINED, pretrained=True, cache_dir=directory)
+    return model.to(device).eval(), imagenet_classes()
 
 
 def initialize_classifier(classes, previous_path=None):
@@ -108,13 +127,13 @@ def initialize_classifier(classes, previous_path=None):
     checkpoint = read_checkpoint(previous_path)
     model = build_classifier(len(classes), pretrained=False)
     state = checkpoint["model"].copy()
-    old_weight = state.pop("heads.head.weight")
-    old_bias = state.pop("heads.head.bias")
+    old_weight = state.pop("head.weight")
+    old_bias = state.pop("head.bias")
     model.load_state_dict(state, strict=False)
     old_indices = {name: i for i, name in enumerate(checkpoint["classes"])}
     with torch.no_grad():
         for index, name in enumerate(classes):
             if name in old_indices:
-                model.heads.head.weight[index].copy_(old_weight[old_indices[name]])
-                model.heads.head.bias[index].copy_(old_bias[old_indices[name]])
+                model.head.weight[index].copy_(old_weight[old_indices[name]])
+                model.head.bias[index].copy_(old_bias[old_indices[name]])
     return model

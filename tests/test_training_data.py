@@ -6,8 +6,6 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
-from types import SimpleNamespace
-
 import torch
 from PIL import Image
 
@@ -16,49 +14,11 @@ from utils.common import load_config
 from training.data import ProductDataset
 from production.geometry import crop_box
 from training.metrics import classification_metrics
-from production.pipeline import RGBPipeline
 from utils.prepare_data import prepare_data, read_annotations
 
 
-class FakeDetector:
-    """Return fixed boxes so crop handling can be checked exactly."""
-
-    def __init__(self, boxes):
-        self.boxes = boxes
-
-    def predict(self, image, **kwargs):
-        masks = torch.zeros((len(self.boxes), image.height, image.width))
-        for index, (x1, y1, x2, y2) in enumerate(self.boxes):
-            masks[index, y1:y2, x1:x2] = 1
-        return [SimpleNamespace(boxes=SimpleBoxes(self.boxes),
-                                masks=SimpleNamespace(data=masks), names={0: "apple"})]
-
-
-class SimpleBoxes:
-    """Provide the parts of the YOLO box API used by the pipeline."""
-
-    def __init__(self, boxes):
-        self.xyxy = torch.tensor(boxes, dtype=torch.float32).reshape(-1, 4)
-        self.conf = torch.ones(len(boxes)) * 0.9
-        self.cls = torch.zeros(len(boxes))
-
-    def __len__(self):
-        return len(self.xyxy)
-
-
-class FakeClassifier(torch.nn.Module):
-    """Produce known scores without learning anything."""
-
-    def __init__(self, confident=True):
-        super().__init__()
-        self.confident = confident
-
-    def forward(self, images):
-        return images.new_tensor([0.0, 8.0] if self.confident else [0.0, 0.0]).repeat(len(images), 1)
-
-
-class DataAndPipelineTests(unittest.TestCase):
-    """Check real data conversion and pipeline edge cases using tiny images."""
+class TrainingDataTests(unittest.TestCase):
+    """Check training data conversion and metrics using tiny images."""
 
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
@@ -74,8 +34,6 @@ class DataAndPipelineTests(unittest.TestCase):
                                   "group": f"{split}_session"})
         self.manifest = self.root / "annotations.csv"
         self.write_manifest()
-        self.settings = {"detection_confidence": 0.25, "classification_confidence": 0.65,
-                         "batch_size": 1, "max_detections": 100, "crop_padding": 0.05}
 
     def write_manifest(self):
         """Write the tiny annotation table used by a test."""
@@ -148,18 +106,6 @@ class DataAndPipelineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             crop_box((2, 2, 1, 1), 10, 10)
 
-    def test_pipeline_multiple_crops_and_unknown(self):
-        pipeline = self.make_pipeline([[0, 0, 20, 20], [20, 0, 40, 20]])
-        result = pipeline.predict(Image.new("RGB", (40, 30)))
-        self.assertEqual([item["category"] for item in result], ["milk", "milk"])
-        json.dumps(result)
-        pipeline.classifier = FakeClassifier(confident=False)
-        self.assertTrue(all(item["category"] == "unknown" for item in pipeline.predict(Image.new("RGB", (40, 30)))))
-
-    def test_pipeline_empty_detections(self):
-        pipeline = self.make_pipeline([])
-        self.assertEqual(pipeline.predict(Image.new("RGB", (40, 30))), [])
-
     def test_eval_transform_is_repeatable(self):
         image = Image.new("RGB", (15, 40), "red")
         self.assertTrue(torch.equal(image_transform()(image), image_transform()(image)))
@@ -173,16 +119,6 @@ class DataAndPipelineTests(unittest.TestCase):
         config = load_config(Path(__file__).resolve().parents[1] / "configs/training.yaml")
         self.assertTrue(Path(config["classifier"]["data"]).is_absolute())
         self.assertTrue(Path(config["segmenter"]["weights"]).is_absolute())
-
-    def make_pipeline(self, boxes):
-        weights = self.root / "fake.pt"
-        weights.touch()
-        pipeline = RGBPipeline({"device": "cpu", "classifier": {"checkpoint": None},
-                                "prediction": {**self.settings, "segmentation_weights": str(weights)}})
-        pipeline.model = FakeDetector(boxes)
-        pipeline.classifier = FakeClassifier()
-        pipeline.classes = ["apple", "milk"]
-        return pipeline
 
 
 #------------------------------------------------------------

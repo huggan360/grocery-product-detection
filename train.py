@@ -16,9 +16,6 @@ def main():
         parser.error("Set each model's weights in the config when training both.")
     from utils.common import load_config
     config = load_config(args.config)
-    # Keep ImageNet downloads with the other ViT models.
-    import torch
-    torch.hub.set_dir(str(Path(__file__).parent / "models/vit/pretrained"))
     if args.model in ("yolo", "both"):
         from training.yolo import train_segmenter
         settings = config["segmenter"]

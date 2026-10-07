@@ -1,0 +1,71 @@
+#------------------------------------------------------------
+# TWO CAMERAS, ONE SHARED VIDEO PIPELINE
+#------------------------------------------------------------
+# Paths are relative to this file; model paths are relative to models_directory.
+# backend applies to YOLO: auto uses the Hailo-8 AI HAT+ (26 TOPS) when it is detected,
+# otherwise PyTorch. On the Pi set "hailo" so a missing accelerator fails loudly
+# instead of silently running YOLO on the CPU. ViT always runs in PyTorch.
+backend: auto
+device: auto
+models_directory: ../models
+acquisition_directory: ../data/acquisition
+production_directory: ../runs/video
+zones_file: ../data/acquisition/zones.json  # Drawn in the annotation tool.
+retention_runs: 3
+detector:
+  # YOLO26m: 640x640, ~49 FPS on Hailo-8. YOLO26l and -seg are not in the Hailo
+  # Model Zoo, so the Pi and PC both use YOLO26m boxes for tracking.
+  weights: yolo/yolo26m.pt
+  hef: hailo/yolo26m.hef
+  hef_labels: null  # null = the 80 COCO classes; set a labels file for a fine-tuned HEF.
+  image_size: 640
+  confidence: 0.15
+  max_detections: 100
+  preprocessing: true
+  excluded_labels: [person, refrigerator]  # Hands and the fridge itself are not products.
+classifier:
+  # ViT-Small/16 (22M parameters) runs on the CPU (the Pi's CPU in production).
+  # Only crops_per_track crops of each MOVING object are classified.
+  checkpoint: null  # null = ImageNet guesses; later vit/grocery-v1/best.pt.
+  confidence: 0.0  # Demo guesses; not trained grocery categories.
+  crops_per_track: 3
+tracking:
+  sample_fps: 5
+  stable_frames: 2
+  dwell_seconds: 0.2
+  max_gap_seconds: 1.0
+  minimum_movement: 0.03
+  max_tracks: 300
+video:
+  max_duration_seconds: 180
+  max_upload_mb: 1024
+  max_pixels: 16777216
+  proxy_width: 1280
+  proxy_preset: veryfast
+# Default zones. Draw them on a real frame in the reviewer; they are saved to zones_file.
+# Coordinates are normalized [left, top, right, bottom].
+cameras:
+  fridge:
+    inside: null
+    outside: null
+  door:
+    inside: null
+    outside: null
+#------------------------------------------------------------
+# RECORD CLIPS ON THE PI (annotation tool "Record" button / utils/record_clip.py)
+#------------------------------------------------------------
+# kind: rpicam  -> Raspberry Pi camera module on CSI port `camera` (0 or 1)
+# kind: v4l2    -> USB camera, `device` such as /dev/video0
+capture:
+  fridge:
+    kind: rpicam
+    camera: 0
+    width: 1280
+    height: 720
+    fps: 30
+  door:
+    kind: rpicam
+    camera: 1
+    width: 1280
+    height: 720
+    fps: 30

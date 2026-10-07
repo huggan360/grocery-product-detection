@@ -3,62 +3,73 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Image annotation</title>
-  <link rel="stylesheet" href="/static/style.css?v=3">
-  <script src="/static/app.js?v=3" defer></script>
-  <script src="/static/masks.js?v=3" defer></script>
+  <title>Video review</title>
+  <link rel="stylesheet" href="/static/style.css?v=5">
+  <script src="/static/videos.js?v=3" defer></script>
 </head>
 <body>
   <!-- ---------------------------------------------------- -->
-  <!-- SHARED WORKSPACE HEADER                               -->
+  <!-- UPLOAD OR RECORD A CLIP                               -->
   <!-- ---------------------------------------------------- -->
   <header class="topbar">
-    <div class="presence"><span id="connection" class="status-dot"></span><span id="collaborators">Connecting…</span></div>
-    <div class="header-actions"><button id="export-button" class="quiet">Export saved</button><button id="upload-button">Upload</button><button id="capture-button" class="primary">Capture shelves</button><span id="user-badge" class="user-badge"></span></div>
+    <div class="presence"><strong>Fridge video review</strong></div>
+    <div class="header-actions">
+      <button id="export-button" class="quiet">Export reviewed</button>
+      <button id="upload-button">Upload video</button>
+      <span id="record-controls" class="record-controls"></span>
+      <span id="user-badge" class="user-badge"></span>
+    </div>
   </header>
   <div id="model-status" class="model-status"></div>
-  <nav class="workspace-nav"><div class="tabs"><button id="pending-tab" class="tab active">Unedited <span id="pending-count">0</span></button><button id="reviewed-tab" class="tab">Saved &amp; edited <span id="reviewed-count">0</span></button></div><div class="nav-right"><label for="shelf-filter">Shelf</label><select id="shelf-filter"><option value="">All shelves</option></select><button id="next-button" class="primary small">Next image</button></div></nav>
   <main class="workspace">
     <!-- ---------------------------------------------------- -->
-    <!-- LIVE IMAGE QUEUE                                     -->
+    <!-- CLIPS, NEWEST FIRST                                  -->
     <!-- ---------------------------------------------------- -->
-    <aside class="queue-panel"><div class="panel-heading"><h2 id="queue-title">Images</h2></div><div id="image-list" class="image-list"></div></aside>
+    <aside class="queue-panel"><div class="panel-heading"><h2>Clips</h2></div><div id="video-list" class="image-list"></div></aside>
     <!-- ---------------------------------------------------- -->
-    <!-- IMAGE AND BOX EDITOR                                 -->
+    <!-- PLAYER WITH TRACK BOXES AND INSIDE/OUTSIDE ZONES     -->
     <!-- ---------------------------------------------------- -->
     <section class="editor-panel">
-      <div class="editor-heading"><div><h2 id="image-title">Select an image</h2><p id="image-meta"></p></div><span id="save-state" class="save-state">No image selected</span></div>
-      <div id="editor-warning" class="warning" hidden></div>
-      <div class="toolbar"><div class="tool-group"><button id="select-tool" class="tool active" title="Select and move boxes (V)">Select <kbd>V</kbd></button><button id="draw-tool" class="tool" title="Draw a new box (D)">Draw box <kbd>D</kbd></button></div><div class="tool-group"><button id="undo-button" title="Undo (Ctrl+Z)">↶</button><button id="redo-button" title="Redo (Ctrl+Shift+Z)">↷</button><span class="divider"></span><button id="zoom-out" title="Zoom out">−</button><span id="zoom-label">Fit</span><button id="zoom-in" title="Zoom in">＋</button><button id="fit-button">Fit</button></div></div>
-      <div class="mask-tools"><button id="polygon-tool" title="Click around the visible object. Enter finishes; Escape cancels.">Draw mask <kbd>P</kbd></button><button id="finish-polygon" hidden>Finish</button><button id="cancel-polygon" hidden>Cancel</button><button id="suggest-masks">Suggest masks</button></div>
-      <div id="canvas-viewport" class="canvas-viewport">
-        <div id="empty-editor" class="empty-editor"><button id="empty-next">Next image</button></div>
-        <canvas id="image-canvas" hidden aria-label="Product box editor"></canvas>
+      <div class="editor-heading"><div><h2 id="video-title">Select a clip</h2><p id="video-meta"></p></div><span id="video-state" class="save-state"></span></div>
+      <div id="video-warning" class="warning" hidden></div>
+      <div class="toolbar">
+        <div class="tool-group">
+          <button id="zone-inside" class="tool" title="Drag a rectangle over the inside of the fridge">Draw inside</button>
+          <button id="zone-outside" class="tool" title="Drag a rectangle over the area outside the fridge">Draw outside</button>
+          <button id="zone-clear">Clear zones</button>
+          <button id="zone-save" class="primary">Save zones &amp; re-check</button>
+        </div>
+        <div class="tool-group"><label class="empty-check"><input id="show-all" type="checkbox">Show all tracks</label><button id="rerun-button">Run models again</button></div>
       </div>
-      <div class="editor-footer"><button id="leave-button" class="quiet">Save draft &amp; close</button></div>
+      <div class="video-stage" id="video-stage">
+        <div id="video-empty" class="empty-editor">Upload or record a clip.</div>
+        <div id="video-frame" class="video-frame" hidden>
+          <video id="player" controls playsinline muted></video>
+          <canvas id="overlay" aria-label="Tracks and zones"></canvas>
+        </div>
+      </div>
+      <div class="editor-footer"><span class="muted">Green = inside, orange = outside. Movement is counted only when the same track is seen stably in both zones.</span></div>
     </section>
     <!-- ---------------------------------------------------- -->
-    <!-- CATEGORY AND REVIEW CONTROLS                         -->
+    <!-- MOVEMENTS AND TRACK CORRECTIONS                      -->
     <!-- ---------------------------------------------------- -->
-    <aside class="inspector"><div class="panel-heading"><h2>Products</h2><span id="box-count" class="count-pill">0</span></div>
-      <label class="field-label" for="category-select">Category</label><select id="category-select"><option value="">Choose category</option></select>
-      <button id="add-category-button" class="text-button">Add category</button>
-      <div id="box-list" class="box-list"><p class="muted"></p></div>
-      <div id="selected-box" hidden><div class="panel-heading"><h3>Box coordinates</h3><button id="delete-box" class="danger-text">Delete</button></div><div class="coordinate-grid"><label>Left<input id="coord-x1" type="number" min="0" step="1"></label><label>Top<input id="coord-y1" type="number" min="0" step="1"></label><label>Right<input id="coord-x2" type="number" min="0" step="1"></label><label>Bottom<input id="coord-y2" type="number" min="0" step="1"></label></div></div>
-      <div id="mask-controls" hidden><button id="redraw-mask" class="text-button">Redraw mask</button> <button id="remove-mask" class="text-button">Remove mask</button><button id="remove-point" class="text-button" title="Select a vertex first. Shift-click an edge to add a point.">Remove point</button><canvas id="mask-preview" width="180" height="140" aria-label="Masked crop sent to the classifier" title="Classifier input: grey pixels are outside this object's mask."></canvas></div>
-      <label class="field-label" for="notes">Notes</label><textarea id="notes" rows="2" maxlength="4000" ></textarea>
-      <label class="empty-check"><input id="empty-confirmed" type="checkbox">No products in this image</label>
-      <label class="empty-check"><input id="masks-reviewed" type="checkbox">Masks checked</label>
-      <div class="review-actions"><button id="review-next" class="primary">Save &amp; next</button><button id="review-only">Save &amp; close</button><button id="download-draft" class="text-button" hidden>Download unsaved draft</button></div>
+    <aside class="inspector">
+      <div class="panel-heading"><h2>Movements</h2><span id="movement-count" class="count-pill">0</span></div>
+      <div id="movement-list" class="movement-list"><p class="muted">No clip selected.</p></div>
+      <div class="panel-heading"><h2>Tracks</h2><span id="track-count" class="count-pill">0</span></div>
+      <div id="track-list" class="track-list"></div>
+      <label class="field-label" for="notes">Notes</label><textarea id="notes" rows="2" maxlength="4000"></textarea>
+      <label class="empty-check"><input id="reviewed" type="checkbox">Reviewed</label>
+      <div class="review-actions"><button id="save-review" class="primary">Save review</button></div>
     </aside>
   </main>
   <div id="toast" class="toast" role="status" hidden></div>
-
-  <!-- ---------------------------------------------------- -->
-  <!-- SMALL FORMS FOR JOINING, CAPTURING AND UPLOADING       -->
-  <!-- ---------------------------------------------------- -->
-  <dialog id="join-dialog"><form id="join-form"><label for="editor-name">Your name</label><input id="editor-name" required maxlength="40" placeholder="e.g. Hugo" autocomplete="given-name"><button class="primary" type="submit">Open</button></form></dialog>
-  <dialog id="ingest-dialog"><form id="ingest-form"><h2 id="ingest-title">Upload shelf images</h2><p id="ingest-description"></p><label for="collection-name">Collection session</label><input id="collection-name" required pattern="[a-zA-Z0-9_-]+" maxlength="80"><label for="split-select">Dataset split</label><select id="split-select"><option value="train">Training</option><option value="val">Validation</option><option value="test">Test</option></select><div id="upload-fields"><label for="shelf-name">Shelf name</label><input id="shelf-name" value="Shelf 1" maxlength="80"><label for="image-files">Images (up to 50)</label><input id="image-files" type="file" accept="image/jpeg,image/png,image/webp,image/bmp" multiple></div><div class="dialog-actions"><button id="cancel-ingest" type="button">Cancel</button><button id="submit-ingest" class="primary" type="submit">Add images</button></div><p id="ingest-result" role="status"></p></form></dialog>
-  <dialog id="category-dialog"><form id="category-form"><h2>Add a category</h2><label for="new-category">Category name</label><input id="new-category" required pattern="[a-z][a-z0-9_-]*" maxlength="64" placeholder="oat-milk"><div class="dialog-actions"><button id="cancel-category" type="button">Cancel</button><button type="submit" class="primary">Add category</button></div></form></dialog>
+  <dialog id="join-dialog"><form id="join-form"><label for="editor-name">Your name</label><input id="editor-name" required maxlength="40" autocomplete="given-name"><button class="primary" type="submit">Open</button></form></dialog>
+  <dialog id="upload-dialog"><form id="upload-form"><h2>Upload a video</h2>
+    <label for="upload-camera">Camera</label><select id="upload-camera"></select>
+    <label for="upload-event">Door event ID (optional)</label><input id="upload-event" maxlength="120">
+    <label for="upload-file">Video</label><input id="upload-file" type="file" accept="video/*,.h264,.mkv" required>
+    <div class="dialog-actions"><button id="cancel-upload" type="button">Cancel</button><button class="primary" type="submit">Upload</button></div>
+    <p id="upload-result" role="status"></p></form></dialog>
 </body>
 </html>

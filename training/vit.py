@@ -7,7 +7,7 @@ import warnings
 import torch
 from torch import nn
 
-from production.vit import ARCHITECTURE, IMAGE_SIZE, initialize_classifier
+from production.vit import ARCHITECTURE, IMAGE_SIZE, head_parameters, initialize_classifier
 from utils.common import choose_device, load_config, new_run_folder, seed_everything, write_json
 from training.data import ProductDataset, make_loader
 from training.metrics import evaluate_model
@@ -38,10 +38,11 @@ def train_classifier(config):
     model = initialize_classifier(train_data.classes, settings.get("initialize_from")).to(device)
 
     # The old body learns slowly. The new category layer learns faster.
-    backbone = [p for name, p in model.named_parameters() if not name.startswith("heads.")]
+    head = head_parameters(model)
+    backbone = [p for p in model.parameters() if all(p is not h for h in head)]
     optimizer = torch.optim.AdamW([
         {"params": backbone, "lr": settings["learning_rate"]},
-        {"params": model.heads.parameters(), "lr": settings["head_learning_rate"]},
+        {"params": head, "lr": settings["head_learning_rate"]},
     ], weight_decay=settings["weight_decay"])
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=settings["epochs"])
     use_amp = settings["amp"] and device.type == "cuda"
@@ -58,7 +59,10 @@ def train_classifier(config):
             parameter.requires_grad_(not frozen)
         model.train()
         if frozen:
-            model.encoder.eval()
+            # Keep dropout/normalization of the frozen body in inference mode.
+            for name, module in model.named_children():
+                if name != "head":
+                    module.eval()
         loss_sum, count = 0.0, 0
         for images, labels in train_loader:
             images, labels = images.to(device), labels.to(device)
@@ -77,7 +81,7 @@ def train_classifier(config):
         history.append({"epoch": epoch + 1, "train_loss": loss_sum / count, "validation": metrics})
         write_json(output / "history.json", history)
         checkpoint = {
-            "format_version": 1, "architecture": ARCHITECTURE, "image_size": IMAGE_SIZE,
+            "format_version": 2, "architecture": ARCHITECTURE, "image_size": IMAGE_SIZE,
             "model": model.state_dict(), "classes": train_data.classes,
             "epoch": epoch + 1, "validation": metrics, "config": config,
         }
