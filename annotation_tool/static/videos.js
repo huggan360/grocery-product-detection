@@ -72,11 +72,10 @@ async function refresh() {
   try {
     state.library = await api('/api/videos');
   } catch (error) {
-    $('model-status').textContent = error.message;
+    toast(error.message, true);
     return;
   }
   const library = state.library;
-  $('model-status').textContent = library.model_message;
   if (!$('upload-camera').options.length) {
     for (const camera of Object.keys(library.cameras)) $('upload-camera').append(new Option(camera, camera));
     buildRecordControls(library.recordable);
@@ -100,7 +99,7 @@ function renderList() {
     const card = element('button', {class: `image-card${item.id === state.current ? ' active' : ''}`, onclick: () => openVideo(item.id)},
       element('div', {class: 'card-info'},
         element('div', {class: 'card-top'}, element('strong', {}, item.filename), element('span', {}, item.camera)),
-        element('div', {class: 'card-bottom'}, `${status}${item.reviewed ? ' · reviewed' : ''} · ${new Date(item.created * 1000).toLocaleString()}`)));
+        element('div', {class: 'card-bottom'}, `${status}${item.reviewed ? ', reviewed' : ''}, ${new Date(item.created * 1000).toLocaleString()}`)));
     if (item.status === 'running' || item.status === 'queued') {
       card.append(element('div', {class: 'card-progress', style: `width:${item.progress}%`}));
     }
@@ -154,9 +153,9 @@ async function openVideo(id) {
 function renderHeading() {
   const {meta, result} = state.detail;
   $('video-title').textContent = meta.filename;
-  const info = result ? ` · ${seconds(result.video.duration)} · ${result.video.width}×${result.video.height} · ${result.backend}` : '';
-  $('video-meta').textContent = `${meta.camera} camera · event ${meta.event_id}${info}`;
-  $('video-state').textContent = meta.status === 'done' ? meta.message : `${meta.status}: ${meta.message}`;
+  const info = result ? `, ${seconds(result.video.duration)}, ${result.video.width}×${result.video.height}` : '';
+  $('video-meta').textContent = `${meta.camera} camera, event ${meta.event_id}${info}`;
+  $('video-state').textContent = meta.status === 'done' ? 'Ready' : `${meta.status}: ${meta.message}`;
   const warnings = result ? result.warnings : [];
   $('video-warning').hidden = !warnings.length;
   $('video-warning').textContent = warnings.join(' ');
@@ -185,7 +184,7 @@ function renderInspector() {
     const clipTime = Math.max(0, movement.start - (result.offset_seconds || 0));
     $('movement-list').append(element('div', {class: `movement-row ${movement.direction}`, onclick: () => seek(movement.track_id, clipTime)},
       element('b', {}, movement.direction.toUpperCase()), element('span', {}, `#${movement.track_id} ${movement.category}`),
-      element('span', {class: 'muted'}, `${seconds(movement.start)}${movement.classification_confidence != null ? ` · ${(movement.classification_confidence * 100).toFixed(0)}%` : ''}`)));
+      element('span', {class: 'muted'}, `${seconds(movement.start)}${movement.classification_confidence != null ? `, ${(movement.classification_confidence * 100).toFixed(0)}%` : ''}`)));
   }
   // Moving or classified tracks first; static clutter last.
   const tracks = [...result.tracks].sort((a, b) => (b.events.length - a.events.length) || ((b.movement || 0) - (a.movement || 0)));
@@ -206,7 +205,7 @@ function renderInspector() {
     const image = track.crop_file ? element('img', {src: `/api/videos/${state.current}/files/${track.crop_file}`, alt: `Track ${track.id}`, onclick: () => seek(track.id, first.time)}) : element('div');
     $('track-list').append(element('div', {class: `track-row${state.selected === track.id ? ' active' : ''}`, id: `track-${track.id}`}, image,
       element('div', {},
-        element('div', {}, element('strong', {}, `#${track.id} `), `${track.source_label} · ${seconds(first.time)}–${seconds(track.observations.at(-1).time)}`),
+        element('div', {}, element('strong', {}, `#${track.id} `), `${track.source_label}, ${seconds(first.time)}–${seconds(track.observations.at(-1).time)}`),
         element('div', {class: 'muted'}, guesses || 'not classified (did not move)'),
         category, direction, element('label', {class: 'ignore'}, ignore, 'Ignore (not a product)'))));
   }
