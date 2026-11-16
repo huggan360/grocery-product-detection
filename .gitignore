@@ -14,3 +14,4 @@ models/**/*.png
 models/**/*.jpg
 models/**/*.yaml
 *.hef
+*.log

@@ -35,6 +35,20 @@ def temporary_config(root):
 
 
 class ZoneTests(unittest.TestCase):
+    def test_demo_review_uses_separate_library_and_trained_cpu_models(self):
+        from annotation_tool.settings import read_settings
+        demo=load_config(ROOT/'configs/video_demo_cpu.yaml')
+        normal=load_config(ROOT/'configs/video.yaml')
+        self.assertEqual((demo['backend'],demo['device']),('torch','cpu'))
+        self.assertNotEqual(demo['acquisition_directory'],normal['acquisition_directory'])
+        self.assertNotEqual(demo['zones_file'],normal['zones_file'])
+        self.assertTrue(demo['detector']['weights'].endswith('yolo_demo1/train/weights/best.pt'))
+        self.assertTrue(demo['classifier']['checkpoint'].endswith('vit_demo2/inference.pt'))
+        settings=read_settings(ROOT/'annotation_tool/demo.yaml')
+        self.assertEqual(settings['storage'],demo['acquisition_directory'])
+        self.assertEqual(settings['port'],9001)
+        self.assertEqual(len(settings['categories']),105)
+
     def test_inside_to_outside_is_out_and_reverse_is_in(self):
         self.assertEqual([e["direction"] for e in crossing_events(walk([0.2, 0.2, 0.5, 0.8, 0.8]), ZONES)], ["out"])
         self.assertEqual([e["direction"] for e in crossing_events(walk([0.8, 0.8, 0.5, 0.2, 0.2]), ZONES)], ["in"])

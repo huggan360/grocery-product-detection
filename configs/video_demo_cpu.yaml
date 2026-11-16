@@ -1,0 +1,56 @@
+# Isolated review of trained demo models. CPU YOLO; no Hailo compilation required.
+backend: torch
+device: cpu
+models_directory: ../models
+acquisition_directory: ../data/demo/acquisition
+production_directory: ../runs/demo_video
+zones_file: ../data/demo/acquisition/zones.json
+retention_runs: 3
+detector:
+  weights: yolo/yolo_demo1/train/weights/best.pt
+  hef: hailo/yolo26m.hef
+  hef_labels: null
+  image_size: 640
+  confidence: 0.15
+  max_detections: 100
+  preprocessing: false
+  excluded_labels:
+  - person
+  - refrigerator
+classifier:
+  checkpoint: vit/vit_demo2/inference.pt
+  confidence: 0.0
+  crops_per_track: 3
+tracking:
+  sample_fps: 5
+  stable_frames: 2
+  dwell_seconds: 0.2
+  max_gap_seconds: 1.0
+  minimum_movement: 0.03
+  max_tracks: 300
+video:
+  max_duration_seconds: 180
+  max_upload_mb: 1024
+  max_pixels: 16777216
+  proxy_width: 1280
+  proxy_preset: veryfast
+cameras:
+  fridge:
+    inside: null
+    outside: null
+  door:
+    inside: null
+    outside: null
+capture:
+  fridge:
+    kind: rpicam
+    camera: 0
+    width: 1280
+    height: 720
+    fps: 30
+  door:
+    kind: rpicam
+    camera: 1
+    width: 1280
+    height: 720
+    fps: 30

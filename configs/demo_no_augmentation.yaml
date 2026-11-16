@@ -1,0 +1,20 @@
+# Fine-tuning on collected crops, using full-image boxes confirmed by the user.
+seed: 42
+device: cuda
+classifier:
+  data: ../data/demo_training/classification
+  output: ../models/vit/vit_demo2
+  checkpoint: ../models/vit/vit_demo2/best.pt
+  initialize_from: null
+  epochs: 30
+  batch_size: 16
+  workers: 2
+  learning_rate: 0.00001
+  head_learning_rate: 0.0003
+  weight_decay: 0.05
+  label_smoothing: 0.05
+  augmentation: false
+  freeze_backbone_epochs: 2
+  patience: 7
+  balanced_sampling: false
+  amp: true

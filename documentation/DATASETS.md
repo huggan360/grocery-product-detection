@@ -1,6 +1,26 @@
 # Installed datasets and citations
 
-The data lives under `data/`, which is excluded from Git. No models have been trained on it. The BibTeX entries are in [references.bib](references.bib).
+The data lives under `data/`, which is excluded from Git. The BibTeX entries are in [references.bib](references.bib).
+
+## Current complete crop dataset — November 2026
+
+`data/complete_dataset/` contains **4,500 real JPEG files in `images/` and one `annotations.csv`**. `data/complete_dataset.zip` packages the same images and CSV without symlinks.
+
+| Source | Retained images |
+| --- | ---: |
+| ICA public catalogue | 2,500 |
+| Open Food Facts, Swedish-market products | 1,919 |
+| Grocery Store Dataset iconic images | 81 |
+
+The latest expansion added 2,000 ICA images to the original 2,500-image collection. There are 105 broad classes. All original CSV rows, class IDs, image bytes, split groups and split assignments were preserved. New class IDs are appended. New photos whose similarity groups would connect existing train and validation/test data are kept outside this complete dataset.
+
+The CSV retains product names, brands, quantities, source categories, URLs, rights notices, class IDs, image dimensions, SHA-256 hashes and split groups. As explicitly requested, each crop's entire extent is the product box: `(0, 0, width, height)`, with exclusive right/bottom coordinates. This is recorded as `full_crop_extent_user_confirmed`. Product class labels remain weak labels unless reviewed; source and original product names remain available for corrections.
+
+Prepared training views are in `data/demo_training/`. YOLO uses the existing repository's single `product` detection class; ViT uses the 105 grocery classes. `classification/classes.json` makes the training loader use the same stable class IDs as the CSV. Train/validation/test counts are 3,557 / 463 / 480. These are catalogue-photo splits, not a fridge-video benchmark.
+
+The ICA images have no asserted open licence; source-specific rights notices remain in the CSV. Dataset storage and ZIP files are excluded from Git. No training was started for this expansion. Training remains a manual action using `configs/demo_no_augmentation.yaml` and `python -m training.yolo_demo`; both disable augmentation.
+
+The source sections below document earlier imports and snapshots; their counts and paths do not describe the current complete dataset.
 
 [dataset_sources.json](dataset_sources.json) records the downloaded revision, actual counts, and SHA-256 hashes of the annotation files and API responses.
 

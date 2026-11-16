@@ -22,7 +22,8 @@ def train_classifier(config):
     device = choose_device(config["device"])
     from pathlib import Path
     data = Path(settings["data"])
-    train_data = ProductDataset(data / "train", training=True)
+    train_data = ProductDataset(data / "train", training=True,
+                                augment=settings.get("augmentation", True))
     val_data = ProductDataset(data / "val", classes=train_data.classes)
     missing = set(range(len(train_data.classes))) - {label for _, label in val_data.samples}
     if missing:
@@ -44,10 +45,11 @@ def train_classifier(config):
         {"params": backbone, "lr": settings["learning_rate"]},
         {"params": head, "lr": settings["head_learning_rate"]},
     ], weight_decay=settings["weight_decay"])
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=settings["epochs"])
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=settings["epochs"], eta_min=settings["learning_rate"] * 0.1)
     use_amp = settings["amp"] and device.type == "cuda"
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
-    loss_function = nn.CrossEntropyLoss()
+    loss_function = nn.CrossEntropyLoss(label_smoothing=settings.get("label_smoothing", 0.0))
     best_score, stale_epochs, history = -1.0, 0, []
 
     #------------------------------------------------------------
@@ -84,6 +86,8 @@ def train_classifier(config):
             "format_version": 2, "architecture": ARCHITECTURE, "image_size": IMAGE_SIZE,
             "model": model.state_dict(), "classes": train_data.classes,
             "epoch": epoch + 1, "validation": metrics, "config": config,
+            "optimizer": optimizer.state_dict(), "scheduler": scheduler.state_dict(),
+            "scaler": scaler.state_dict(),
         }
         torch.save(checkpoint, output / "last.pt")
         if metrics["macro_f1"] > best_score:

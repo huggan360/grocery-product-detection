@@ -2,6 +2,7 @@
 # READ CLASSIFICATION DATA WITH A FIXED CATEGORY ORDER
 #------------------------------------------------------------
 from collections import Counter
+import json
 from pathlib import Path
 
 import torch
@@ -16,11 +17,17 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".bmp", ".webp"}
 class ProductDataset(Dataset):
     """Read product pictures from one folder per category."""
 
-    def __init__(self, root, classes=None, training=False):
+    def __init__(self, root, classes=None, training=False, augment=True):
         self.root = Path(root)
         if not self.root.is_dir():
             raise ValueError(f"Missing dataset folder: {self.root}")
         found = sorted(p.name for p in self.root.iterdir() if p.is_dir())
+        mapping_path=self.root.parent/'classes.json'
+        if classes is None and mapping_path.is_file():
+            mapping=json.loads(mapping_path.read_text())
+            if not isinstance(mapping,dict) or sorted(mapping.values())!=list(range(len(mapping))):
+                raise ValueError('Dataset classes.json must map category names to contiguous IDs.')
+            classes=sorted(mapping,key=mapping.get)
         self.classes = list(classes) if classes is not None else found
         if "unknown" in self.classes:
             raise ValueError("The category name 'unknown' is reserved for rejected predictions.")
@@ -36,7 +43,7 @@ class ProductDataset(Dataset):
             self.samples.extend((p, label) for p in files)
         if not self.samples:
             raise ValueError(f"No images found in {self.root}")
-        self.transform = image_transform(training)
+        self.transform = image_transform(training and augment)
 
     def __len__(self):
         """Return the number of product pictures."""

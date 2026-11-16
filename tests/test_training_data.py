@@ -110,6 +110,26 @@ class TrainingDataTests(unittest.TestCase):
         image = Image.new("RGB", (15, 40), "red")
         self.assertTrue(torch.equal(image_transform()(image), image_transform()(image)))
 
+    def test_training_augmentation_can_be_disabled(self):
+        folder = self.root / "train/milk"
+        folder.mkdir(parents=True)
+        Image.new("RGB", (30, 60), "red").save(folder / "milk.png")
+        dataset = ProductDataset(self.root / "train", training=True, augment=False)
+        self.assertTrue(torch.equal(dataset[0][0], dataset[0][0]))
+        self.assertFalse(any("Random" in type(t).__name__ or "Jitter" in type(t).__name__
+                             for t in dataset.transform.transforms))
+
+    def test_explicit_class_ids_survive_dataset_extension(self):
+        for name in ['apple','milk']:
+            folder=self.root/'classification/train'/name
+            folder.mkdir(parents=True)
+            Image.new('RGB',(20,20),'red').save(folder/'image.jpg')
+        (self.root/'classification/classes.json').write_text(json.dumps({'milk':0,'apple':1}))
+        dataset=ProductDataset(self.root/'classification/train',training=True,augment=False)
+        self.assertEqual(dataset.classes,['milk','apple'])
+        self.assertEqual(dataset[0][1],0)
+        self.assertEqual(dataset.samples[0][0].parent.name,'milk')
+
     def test_metrics(self):
         result = classification_metrics(torch.tensor([[2, 1], [0, 1]]), ["apple", "milk"])
         self.assertAlmostEqual(result["accuracy"], 0.75)
