@@ -50,8 +50,9 @@ class TorchDetector:
 
     def detect(self, rgb):
         bgr = np.ascontiguousarray(rgb[:, :, ::-1])
+        # Match the fixed square letterbox used during training and by the HEF.
         result = self.model.predict(bgr, imgsz=self.image_size, conf=self.confidence,
-                                    max_det=self.max_detections, device=self.device, verbose=False)[0]
+                                    max_det=self.max_detections, device=self.device, rect=False, verbose=False)[0]
         if result.boxes is None or not len(result.boxes):
             return np.zeros((0, 6), np.float32)
         return result.boxes.data[:, :6].cpu().numpy().astype(np.float32)

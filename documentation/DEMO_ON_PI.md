@@ -6,15 +6,30 @@ The remote `prod` branch is not updated. Device-specific configuration and video
 remain in the existing checkout, with configuration backups under
 `data/deployment_backups/`.
 
-The installed local video configuration selects YOLO26m `yolo_demo1` and ViT-Small
-`vit_demo2`. These checkpoints run on the CPU. The trained YOLO `.pt` cannot run
-directly on the Hailo-8: compiling a matching `.hef` is a separate step. CPU
-detection is slower than the installed accelerator model.
+The installed local video configuration uses the trained `yolo_demo1` on the
+Hailo-8 (`backend: hailo`, `detector.hef: hailo/yolo_demo1.hef`,
+`detector.hef_labels: hailo/yolo_demo1.txt`) and the trained ViT-Small `vit_demo2`
+on the CPU. The detector has one class, `item`; ViT supplies the grocery category.
+
+PyTorch inference uses a fixed square letterbox, matching training and the HEF.
+Rectangular padding caused very low confidence on the portrait fridge frames.
+With matching padding, `yolo_demo1` produces high-confidence boxes covering most
+of the frame. Its training boxes covered entire product catalogue images, which
+does not teach reliable product localization in fridge scenes. Use boxes from
+representative fridge footage for further detector fine-tuning.
+
+The HEF was compiled locally with DFC 3.33.0, obtained from
+[DeGirum's public compiler image](https://hub.docker.com/r/degirum/dg_local_compiler).
+Calibration used catalogue images and actual fridge frames. Optional fine-tuning
+was disabled; quantization and compiler optimization levels were both 0. Build
+provenance and hashes are saved beside the HEF in `yolo_demo1.build.json`.
 
 Git excludes model files. Their deployed locations are:
 
 ```text
 models/yolo/yolo_demo1/train/weights/best.pt
+models/hailo/yolo_demo1.hef
+models/hailo/yolo_demo1.txt
 models/vit/vit_demo2/inference.pt
 ```
 
