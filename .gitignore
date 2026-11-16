@@ -13,5 +13,6 @@ models/**/*.csv
 models/**/*.png
 models/**/*.jpg
 models/**/*.yaml
+models/**/*.txt
 *.hef
 *.log
