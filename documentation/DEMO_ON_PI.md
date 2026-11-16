@@ -1,15 +1,17 @@
-# Try the trained demos on existing Pi clips
+# Use the trained demos on the Pi
 
-Use the `main` checkout for this demo. The `prod` branch and normal
-`configs/video.yaml` are not changed by the demo configuration.
+The Pi's existing checkout is `/srv/smart-fridge/grocery-product-detection`, on
+`main`. Its existing annotation tool is `fridge-review.service`, on port **9000**.
+The remote `prod` branch is not updated. Device-specific configuration and videos
+remain in the existing checkout, with configuration backups under
+`data/deployment_backups/`.
 
-The demo uses YOLO26m `yolo_demo1` and ViT-Small `vit_demo2`. Both run on the CPU
-with `configs/video_demo_cpu.yaml`. The trained YOLO `.pt` cannot run directly on
-the Hailo-8: compiling a matching `.hef` is a separate step. CPU detection on a Pi
-will be slower than the installed accelerator model.
+The installed local video configuration selects YOLO26m `yolo_demo1` and ViT-Small
+`vit_demo2`. These checkpoints run on the CPU. The trained YOLO `.pt` cannot run
+directly on the Hailo-8: compiling a matching `.hef` is a separate step. CPU
+detection is slower than the installed accelerator model.
 
-Git excludes checkpoints and data. Transfer these files separately into the main
-checkout, keeping their relative paths:
+Git excludes model files. Their deployed locations are:
 
 ```text
 models/yolo/yolo_demo1/train/weights/best.pt
@@ -17,35 +19,41 @@ models/vit/vit_demo2/inference.pt
 ```
 
 `inference.pt` contains the same ViT weights, architecture and 105 class names as
-the best training checkpoint, without optimizer/scheduler/scaler state. Do not
-use a checkpoint from the earlier partial training run.
+the best training checkpoint, without optimizer/scheduler/scaler state.
 
-From the main checkout, with its Python environment active:
+## Reclassify all existing videos
 
-```bash
-python annotation_tool/run.py --config annotation_tool/demo.yaml
-```
-
-The demo reviewer listens on `127.0.0.1:9001` and uses the separate library
-`data/demo/acquisition/videos/`. Normal clips and reviews remain under
-`data/acquisition/`. The demo's class list uses the exact trained class names.
-
-To review previous clips without changing their original results or annotations,
-copy their complete video-library folders into the demo library first, and copy
-the existing zone definitions to `data/demo/acquisition/zones.json`. Then select a
-clip in the demo reviewer and choose **Run models again**. Inspect the resulting
-tracks and category confidence; catalogue validation is not a fridge-video
-accuracy estimate.
-
-Access the localhost-only reviewer over SSH forwarding:
+After selecting the models and restarting the reviewer to load them:
 
 ```bash
-ssh -N -L 9001:127.0.0.1:9001 hugo@smartfridge
+cd /srv/smart-fridge/grocery-product-detection
+.venv/bin/python -m utils.reclassify_videos --all
 ```
 
-Then open `http://localhost:9001`. Keep this SSH connection running while using
-the reviewer. With a per-user Tailscale client, the SSH host configuration can use
-`ProxyCommand tailscale nc %h %p` to reach the Pi through that client's networking.
+Add `--wait` to print progress until the batch completes. The command uses the
+reviewer's HTTP API and returns a batch ID, queued video IDs and backup path.
+Already queued/running clips are skipped. Original video files are retained.
 
-The demo does not retrain models, start the door-recording service, or switch the
-production detector. It uses the existing ByteTrack and zone-crossing pipeline.
+Previous predictions, track crops and human reviews are backed up under
+`data/acquisition/reclassification_backups/<batch>/<video-id>/`. Active reviews are
+reset because the new detector may assign different tracking IDs. Reprocessed
+clips appear in the same annotation tool as they finish. Failed clips show their
+error messages; they are not silently counted as successful.
+
+The per-clip **Run models again** button also backs up the prior results/review.
+
+## Open the annotation tool
+
+From the desktop:
+
+```bash
+ssh -N -L 9000:127.0.0.1:9000 hugo@smartfridge
+```
+
+Open `http://localhost:9000`. Keep the SSH connection running. Both ends of the
+forward must use **9000**, not 900. The dedicated SSH key is configured on this
+desktop; Tailscale provides the connection to the Pi.
+
+The optional `annotation_tool/demo.yaml` / `configs/video_demo_cpu.yaml` templates
+still support a separate port-9001 library, but the current Pi deployment uses the
+original port-9000 tool and video library, as requested.

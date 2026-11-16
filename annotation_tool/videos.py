@@ -39,6 +39,10 @@ class ReviewRequest(BaseModel):
     reviewed: bool = False
 
 
+class ReclassifyRequest(BaseModel):
+    all_videos: bool = False
+
+
 class VideoLibrary:
     """One folder per clip; meta.json holds queue state, result.json the model output."""
 
@@ -68,6 +72,43 @@ class VideoLibrary:
             meta.update(values)
             write_json(path, meta)
             return meta
+
+    def reclassify(self, editor, video_ids=None):
+        """Back up predictions/reviews, then queue clips for fresh model outputs."""
+        batch=secrets.token_hex(12)
+        backup=self.root.parent/'reclassification_backups'/batch
+        queued=[]
+        skipped=[]
+        with self.lock:
+            ids=video_ids if video_ids is not None else [m['id'] for m in self.items()]
+            for video_id in ids:
+                folder=self.folder(video_id)
+                meta=self.meta(video_id)
+                if meta['status'] in ('queued','running'):
+                    skipped.append(video_id)
+                    continue
+                destination=backup/video_id
+                destination.mkdir(parents=True)
+                paths=[folder/name for name in ('meta.json','result.json','review.json')]
+                paths.extend(folder.glob('track-*.jpg'))
+                for path in paths:
+                    if path.is_file():
+                        shutil.copy2(path,destination/path.name)
+                # Human track corrections cannot be attached to new tracking IDs.
+                (folder/'review.json').unlink(missing_ok=True)
+                meta.update(status='queued',progress=0,message='Waiting for reclassification',
+                            reclassification_batch=batch,reclassified_by=editor)
+                write_json(folder/'meta.json',meta)
+                queued.append(video_id)
+            backup.mkdir(parents=True,exist_ok=True)
+            report={'batch':batch,'queued':len(queued),'video_ids':queued,
+                    'skipped_active':len(skipped),'skipped_ids':skipped,
+                    'backup_directory':str(backup),'editor':editor,'created_at':time.time(),
+                    'models':{'backend':self.config['backend'],
+                              'yolo':self.config['detector'].get('weights'),
+                              'vit':self.config['classifier'].get('checkpoint')}}
+            write_json(backup/'batch.json',report)
+        return report
 
     def add(self, source, filename, camera, event_id, editor, move=False):
         """Copy (or move) a clip in and queue it for the pipeline."""
@@ -253,6 +294,13 @@ def add_video_routes(app, settings, store):
             raise StoreError(str(error), 503) from error
         return {"id": library.add(path, path.name, body.camera, body.event_id.strip(), name)}
 
+    @app.post('/api/videos/reclassify')
+    def reclassify_all(body: ReclassifyRequest, x_session: str = Header()):
+        name=editor(x_session)
+        if not body.all_videos:
+            raise StoreError('Set all_videos=true to explicitly reclassify the whole library.')
+        return library.reclassify(name)
+
     @app.get("/api/videos/{video_id}")
     def video_detail(video_id: str):
         folder = library.folder(video_id)
@@ -286,10 +334,13 @@ def add_video_routes(app, settings, store):
 
     @app.post("/api/videos/{video_id}/rerun")
     def rerun(video_id: str, x_session: str = Header()):
-        editor(x_session)
+        name=editor(x_session)
         if library.meta(video_id)["status"] in ("queued", "running"):
             raise StoreError("This clip is already queued.", 409)
-        return library.update(video_id, status="queued", progress=0, message="Waiting")
+        result=library.reclassify(name,[video_id])
+        if not result['queued']:
+            raise StoreError('This clip is already queued.',409)
+        return library.meta(video_id)
 
     @app.put("/api/videos/{video_id}/review")
     def review(video_id: str, body: ReviewRequest, x_session: str = Header()):
@@ -306,7 +357,10 @@ def add_video_routes(app, settings, store):
                                      "direction": values.get("direction", "auto")}
         document = {"tracks": tracks, "notes": body.notes, "reviewed": body.reviewed,
                     "editor": name, "saved_at": time.time()}
-        write_json(folder / "review.json", document)
+        with library.lock:
+            if library.meta(video_id)['status']!='done':
+                raise StoreError('Wait until the new predictions finish before saving a review.',409)
+            write_json(folder / "review.json", document)
         return document
 
     return library

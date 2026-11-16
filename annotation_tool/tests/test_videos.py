@@ -91,6 +91,36 @@ class VideoReviewTests(unittest.TestCase):
         self.assertEqual(self.client.put("/api/zones/fridge", json=overlap, headers=self.headers).status_code, 400)
         self.assertEqual(self.client.get("/api/videos/../../etc/files/video.mp4").status_code, 404)
 
+    def test_bulk_reclassification_backs_up_review_and_replaces_predictions(self):
+        response=self.client.post('/api/videos',headers=self.headers,data={'camera':'fridge'},
+                                  files={'file':('clip.mp4',b'fake video','video/mp4')})
+        video_id=response.json()['id'];self.wait(video_id)
+        review={'tracks':{'1':{'category':'milk','direction':'out','ignored':False}},'reviewed':True}
+        self.client.put(f'/api/videos/{video_id}/review',json=review,headers=self.headers)
+        folder=self.client.app.state.videos.folder(video_id)
+        old_result=(folder/'result.json').read_bytes()
+        old_review=(folder/'review.json').read_bytes()
+        response=self.client.post('/api/videos/reclassify',json={'all_videos':True},headers=self.headers)
+        self.assertEqual(response.status_code,200,response.text)
+        batch=response.json();self.assertEqual(batch['queued'],1)
+        backup=Path(batch['backup_directory'])/video_id
+        self.assertEqual((backup/'result.json').read_bytes(),old_result)
+        self.assertEqual((backup/'review.json').read_bytes(),old_review)
+        self.assertFalse((folder/'review.json').exists())
+        self.assertEqual(self.wait(video_id)['meta']['status'],'done')
+        self.assertFalse(self.client.get('/api/videos').json()['items'][0]['reviewed'])
+
+    def test_bulk_reclassification_requires_explicit_all_and_skips_active(self):
+        self.assertEqual(self.client.post('/api/videos/reclassify',json={},headers=self.headers).status_code,400)
+        self.assertEqual(self.client.post('/api/videos/reclassify',json={'all_videos':True}).status_code,422)
+        response=self.client.post('/api/videos',headers=self.headers,data={'camera':'fridge'},
+                                  files={'file':('clip.mp4',b'fake video','video/mp4')})
+        video_id=response.json()['id'];self.wait(video_id)
+        self.client.app.state.videos.update(video_id,status='running')
+        result=self.client.post('/api/videos/reclassify',json={'all_videos':True},headers=self.headers).json()
+        self.assertEqual(result['queued'],0)
+        self.assertEqual(result['skipped_ids'],[video_id])
+
 
 if __name__ == "__main__":
     unittest.main()
